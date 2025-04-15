@@ -41,15 +41,11 @@ class VampireWorldEnv(gym.Env):
         # Each location is encoded as an element of {0, ..., `size`}^2,
         # i.e. MultiDiscrete([size, size]).
         if self.render_mode == "rgb_array":
-            self.observation_space = spaces.Dict(
-                {
-                    "rgb": spaces.Box(
-                        low=0,
-                        high=255,
-                        shape=(self.window_size, self.window_size, 3),
-                        dtype=np.uint8,
-                    )
-                }
+            self.observation_space = spaces.Box(
+                low=0,
+                high=255,
+                shape=(self.window_size, self.window_size, 3),
+                dtype=np.uint8,
             )
         else:
             self.observation_space = spaces.Dict(
@@ -100,7 +96,7 @@ class VampireWorldEnv(gym.Env):
 
     def _get_obs(self):
         if self.render_mode == "rgb_array":
-            return {"rgb": self._render_frame()}
+            return self._render_frame()
         else:
             return {
                 "agent": self._agent_location,
