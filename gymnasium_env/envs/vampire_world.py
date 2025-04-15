@@ -65,7 +65,7 @@ class VampireWorldEnv(gym.Env):
             )
             # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
         if movement == "wasd":
-            self.action_space = spaces.MultiDiscrete(4)
+            self.action_space = spaces.Discrete(4)
         elif movement == "stick":
             self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=float)
 
