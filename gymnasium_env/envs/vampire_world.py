@@ -21,7 +21,7 @@ class VampireWorldEnv(gym.Env):
         self, render_mode=None, size=5, window_size=512, movement: str = "wasd"
     ):
         self.size = size  # The size of the square grid
-        self.window_size = 1024  # The size of the PyGame window
+        self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
         self.attack = 10
         self.max_enemy_health = 50
