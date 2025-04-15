@@ -27,7 +27,7 @@ class VampireWorldEnv(gym.Env):
         self.agent_attack_range = 50
         self.enemy_attack_range = 10
         self.base_reward = 0
-        self.agent_image = pygame.image.load("")
+        self.cum_reward = 0
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -98,6 +98,7 @@ class VampireWorldEnv(gym.Env):
             ),
             "enemies_direction": (self._enemies_location - self._agent_location)
             / np.linalg.norm(self._agent_location - self._enemies_location),
+            "cum_reward": self.cum_reward,
         }
 
     def reset(self, seed=None, options=None):
@@ -139,9 +140,9 @@ class VampireWorldEnv(gym.Env):
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         #
         #
-        if movement == "wasd":
+        if self.movement == "wasd":
             direction = self._action_to_direction[action]
-        elif movement == "stick":
+        elif self.movement == "stick":
             self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=float)
 
         # We use `np.clip` to make sure we don't leave the grid
@@ -184,12 +185,12 @@ class VampireWorldEnv(gym.Env):
             self._enemies_location[enemies_dead_mask] = new_locations
             self._enemies_health[enemies_dead_mask] = self.max_enemy_health
 
-        terminated = self._agent_health < 0
+        terminated = (self._agent_health < 0).astype(bool)[0]
 
         # TODO: add Kills per X last steps as reward
-        self.reward += 0.1 if not terminated else 0
+        self.cum_reward += 0.1 if not terminated else 0
 
-        reward = self.reward
+        reward = self.cum_reward
 
         observation = self._get_obs()
         info = self._get_info()
@@ -220,19 +221,19 @@ class VampireWorldEnv(gym.Env):
             canvas,
             (255, 0, 0),
             (self._target_location) * pix_square_size,
-            pix_square_size * 2,
+            pix_square_size * 10,
         )
         # Now we draw the agent
         pygame.draw.circle(
             canvas,
             (0, 0, 255),
             (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size * 5,
+            pix_square_size * 30,
         )
 
         for x in range(self.size):
             pygame.draw.circle(
-                canvas, (205, 245, 255), self._enemies_location[x], pix_square_size * 3
+                canvas, (205, 245, 255), self._enemies_location[x], pix_square_size * 15
             )
 
         # Finally, add some gridlines
@@ -255,7 +256,6 @@ class VampireWorldEnv(gym.Env):
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(canvas, canvas.get_rect())
-            self.window.blit()
             pygame.event.pump()
             pygame.display.update()
 
