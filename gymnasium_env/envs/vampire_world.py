@@ -4,6 +4,7 @@ from gymnasium import spaces
 import pygame
 import numpy as np
 from scipy import stats
+from collections import deque
 
 
 class Actions(Enum):
@@ -14,20 +15,23 @@ class Actions(Enum):
 
 
 class VampireWorldEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 20}
 
     def __init__(self, render_mode=None, size=5, movement: str = "wasd"):
         self.size = size  # The size of the square grid
         self.window_size = 1024  # The size of the PyGame window
         self.movement = movement
-        self.attack = 4
+        self.attack = 10
         self.max_enemy_health = 50
         self.max_agent_health = 100
-        self.enemy_speed = 7.0
-        self.agent_attack_range = 50
-        self.enemy_attack_range = 10
+        self.enemy_speed = 20.0
+        self.agent_attack_range = 100
+        self.enemy_attack_range = 50
         self.base_reward = 0
         self.cum_reward = 0
+        self.last_kills = deque()
+        self.kills_window = 20
+        self.avg_kills = 0
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -99,6 +103,7 @@ class VampireWorldEnv(gym.Env):
             "enemies_direction": (self._enemies_location - self._agent_location)
             / np.linalg.norm(self._agent_location - self._enemies_location),
             "cum_reward": self.cum_reward,
+            "avg_kills": self.avg_kills,
         }
 
     def reset(self, seed=None, options=None):
@@ -173,6 +178,11 @@ class VampireWorldEnv(gym.Env):
 
         num_dead_enemies = enemies_dead_mask.sum()
 
+        self.last_kills.append(num_dead_enemies)
+        if len(self.last_kills) > self.kills_window:
+            self.last_kills.popleft()
+        self.avg_kills = sum(self.last_kills) / self.kills_window
+
         new_locations = (
             self.np_random.integers(
                 0, self.window_size, size=num_dead_enemies * 2, dtype=int
@@ -188,7 +198,7 @@ class VampireWorldEnv(gym.Env):
         terminated = (self._agent_health < 0).astype(bool)[0]
 
         # TODO: add Kills per X last steps as reward
-        self.cum_reward += 0.1 if not terminated else 0
+        self.cum_reward += self.avg_kills if not terminated else 0
 
         reward = self.cum_reward
 
@@ -222,6 +232,14 @@ class VampireWorldEnv(gym.Env):
             (255, 0, 0),
             (self._target_location) * pix_square_size,
             pix_square_size * 10,
+        )
+
+        # draw the agent's garlic radius
+        pygame.draw.circle(
+            canvas,
+            (120, 120, 120),
+            (self._agent_location + 0.5) * pix_square_size,
+            pix_square_size * self.agent_attack_range,
         )
         # Now we draw the agent
         pygame.draw.circle(
