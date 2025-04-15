@@ -21,6 +21,8 @@ class VampireWorldEnv(gym.Env):
         self, render_mode=None, size=5, window_size=512, movement: str = "wasd"
     ):
         self.size = size  # The size of the square grid
+        self.default_size = 512
+        self.multiplier = window_size / self.default_size
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
         self.attack = 10
@@ -36,6 +38,7 @@ class VampireWorldEnv(gym.Env):
         self.avg_kills = 0
         self.render_mode = render_mode
         self.canvas = np.zeros_like((self.window_size, self.window_size, 3))
+        self.rel_size = 1 / window_size
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -237,34 +240,37 @@ class VampireWorldEnv(gym.Env):
 
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((0, 0, 0))
-        # First we draw the target
         pix_square_size = 1
 
         pygame.draw.circle(
             canvas,
             (255, 0, 0),
-            (self._target_location) * pix_square_size,
-            pix_square_size * 10,
+            (self._target_location.astype(int)),  # * pix_square_size,
+            pix_square_size * 10 * self.multiplier,
         )
 
         # draw the agent's garlic radius
-        pygame.draw.circle(
-            canvas,
-            (120, 120, 120),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size * self.agent_attack_range,
-        )
+        if self.render_mode == "human":
+            pygame.draw.circle(
+                canvas,
+                (120, 120, 120),
+                (self._agent_location.astype(int)),  # * pix_square_size,
+                pix_square_size * self.agent_attack_range * self.multiplier,
+            )
         # Now we draw the agent
         pygame.draw.circle(
             canvas,
             (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size * 30,
+            (self._agent_location.astype(int)),  # * pix_square_size,
+            pix_square_size * 30 * self.multiplier,
         )
 
         for x in range(self.size):
             pygame.draw.circle(
-                canvas, (205, 245, 255), self._enemies_location[x], pix_square_size * 15
+                canvas,
+                (245, 245, 245),
+                self._enemies_location[x].astype(int),
+                pix_square_size * 15 * self.multiplier,
             )
 
         # Finally, add some gridlines
