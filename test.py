@@ -6,7 +6,7 @@ import numpy as np
 
 env = gymnasium.make(
     "gymnasium_env/VampireWorld-v0",
-    window_size=256,
+    window_size=512,
     render_mode="human",
     size=20,
     movement="wasd",

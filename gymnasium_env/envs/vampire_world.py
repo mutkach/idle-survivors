@@ -15,23 +15,22 @@ class Actions(Enum):
 
 
 class VampireWorldEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 5}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 25}
 
     def __init__(
         self, render_mode=None, size=5, window_size=512, movement: str = "wasd"
     ):
         self.size = size  # The size of the square grid
         self.default_size = 512
-        self.multiplier = window_size / self.default_size
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
         self.base_damage = 5
         self.enemy_damage = 2
         self.max_enemy_health = 50
-        self.max_agent_health = 20
+        self.max_agent_health = 50
         self.enemy_speed = 20.0
-        self.agent_attack_range = 50
-        self.enemy_attack_range = 40
+        self.agent_attack_range = 30
+        self.enemy_attack_range = 20
         self.base_reward = 0
         self.cum_reward = 0
         self.last_kills = deque()
@@ -39,7 +38,6 @@ class VampireWorldEnv(gym.Env):
         self.avg_kills = 0
         self.render_mode = render_mode
         self.canvas = np.zeros_like((self.window_size, self.window_size, 3))
-        self.rel_size = 1 / window_size
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -207,16 +205,38 @@ class VampireWorldEnv(gym.Env):
             self.last_kills.popleft()
         self.avg_kills = sum(self.last_kills) / self.kills_window
 
-        new_locations = (
-            self.np_random.integers(
-                0, self.window_size, size=num_dead_enemies * 2, dtype=int
-            )
-            .reshape(num_dead_enemies, 2)
-            .astype(float)
-        )
-
         if num_dead_enemies > 0:
-            self._enemies_location[enemies_dead_mask] = new_locations
+            random_positions = self.np_random.integers(
+                0, self.window_size * 4, size=num_dead_enemies, dtype=int
+            )
+            positions = np.zeros((num_dead_enemies, 2), dtype=int)
+
+            edge_indices = random_positions // self.window_size
+            offsets = random_positions % self.window_size
+
+            # with help from Claude
+            mask = edge_indices == 0
+            positions[mask, 0] = offsets[mask]
+            positions[mask, 1] = 0
+
+            # Handle right edge (edge_index == 1)
+            mask = edge_indices == 1
+            positions[mask, 0] = self.window_size - 1
+            positions[mask, 1] = offsets[mask]
+
+            # Handle bottom edge (edge_index == 2)
+            mask = edge_indices == 2
+            positions[mask, 0] = offsets[mask]
+            positions[mask, 1] = self.window_size - 1
+
+            # Handle left edge (edge_index == 3)
+            mask = edge_indices == 3
+            positions[mask, 0] = 0
+            positions[mask, 1] = offsets[mask]
+
+            # to choose which side of the screen they should spawn
+
+            self._enemies_location[enemies_dead_mask] = positions
             self._enemies_health[enemies_dead_mask] = self.max_enemy_health
 
         terminated = (self._agent_health < 0).astype(bool)[0]
@@ -254,7 +274,7 @@ class VampireWorldEnv(gym.Env):
             canvas,
             (255, 0, 0),
             (self._target_location.astype(int)),  # * pix_square_size,
-            pix_square_size * 10 * self.multiplier,
+            pix_square_size * 10,
         )
 
         # draw the agent's garlic radius
@@ -263,14 +283,14 @@ class VampireWorldEnv(gym.Env):
                 canvas,
                 (120, 120, 120),
                 (self._agent_location.astype(int)),  # * pix_square_size,
-                pix_square_size * self.agent_attack_range * self.multiplier,
+                pix_square_size * self.agent_attack_range,
             )
         # Now we draw the agent
         pygame.draw.circle(
             canvas,
             (0, 0, 255),
             (self._agent_location.astype(int)),  # * pix_square_size,
-            pix_square_size * 30 * self.multiplier,
+            pix_square_size * 15,
         )
 
         for x in range(self.size):
@@ -278,7 +298,7 @@ class VampireWorldEnv(gym.Env):
                 canvas,
                 (245, 245, 245),
                 self._enemies_location[x].astype(int),
-                pix_square_size * 15 * self.multiplier,
+                pix_square_size * 10,
             )
 
         # Finally, add some gridlines
