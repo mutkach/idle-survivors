@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 env = gymnasium.make(
-    "gymnasium_env/VampireWorld-v0", render_mode="human", size=20, movement="wasd"
+    "gymnasium_env/VampireWorld-v0", render_mode="rgb_array", size=20, movement="wasd"
 )
 
 
