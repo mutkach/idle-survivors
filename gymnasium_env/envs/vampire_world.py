@@ -24,20 +24,19 @@ class VampireWorldEnv(gym.Env):
         self.default_size = 512
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
-        self.base_damage = 5
-        self.enemy_damage = 2
+        self.base_damage = 0
+        self.enemy_damage = 5
         self.max_enemy_health = 50
         self.max_agent_health = 50
-        self.enemy_speed = 20.0
+        self.enemy_speed = 0.0
         self.agent_attack_range = 30
-        self.enemy_attack_range = 20
+        self.enemy_attack_range = 10
         self.base_reward = 0
         self.cum_reward = 0
         self.last_kills = deque()
         self.kills_window = 20
         self.avg_kills = 0
         self.render_mode = render_mode
-        self.canvas = np.zeros_like((self.window_size, self.window_size, 3))
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -112,7 +111,7 @@ class VampireWorldEnv(gym.Env):
         return {
             "agent_health": self._agent_health,
             "distance": np.linalg.norm(
-                self._agent_location - self._target_location, ord=1
+                self._agent_location - self._target_location, ord=2
             ),
             "enemies_distances": np.linalg.norm(
                 self._agent_location - self._enemies_location, ord=2, axis=1
@@ -241,10 +240,18 @@ class VampireWorldEnv(gym.Env):
 
         terminated = (self._agent_health < 0).astype(bool)[0]
 
-        # TODO: add Kills per X last steps as reward
-        self.cum_reward += self.avg_kills if not terminated else 0
-
+        self.cum_reward += self.avg_kills
         reward = self.cum_reward
+
+        distance_to_target = np.linalg.norm(
+            self._agent_location - self._target_location, ord=2
+        )
+        if not terminated:
+            if distance_to_target < 20:
+                reward = 1000
+                terminated = true
+
+        # TODO: add Kills per X last steps as reward
 
         observation = self._get_obs()
         info = self._get_info()
