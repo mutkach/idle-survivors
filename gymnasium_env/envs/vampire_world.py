@@ -15,9 +15,11 @@ class Actions(Enum):
 
 
 class VampireWorldEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 20}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 5}
 
-    def __init__(self, render_mode=None, size=5, movement: str = "wasd"):
+    def __init__(
+        self, render_mode=None, size=5, window_size=512, movement: str = "wasd"
+    ):
         self.size = size  # The size of the square grid
         self.window_size = 1024  # The size of the PyGame window
         self.movement = movement
@@ -32,27 +34,35 @@ class VampireWorldEnv(gym.Env):
         self.last_kills = deque()
         self.kills_window = 20
         self.avg_kills = 0
+        self.canvas = np.zeros_like((self.window_size, self.window_size, 3))
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
         # i.e. MultiDiscrete([size, size]).
-        self.observation_space = spaces.Dict(
-            {
-                "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                "enemies": spaces.Box(
-                    0, self.window_size, shape=(self.size, 2), dtype=float
-                ),
-                "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                "agent_health": spaces.Box(
-                    0, self.max_agent_health, shape=(1,), dtype=int
-                ),
-                "enemies_health": spaces.Box(
-                    0, self.max_enemy_health, shape=(self.size,), dtype=int
-                ),
-            }
-        )
-
-        # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
+        if self.render_mode == "rgb_array":
+            self.observation_space = spaces.Box(
+                low=0,
+                high=255,
+                shape=(self.window_size, self.window_size, 3),
+                dtype=np.uint8,
+            )
+        else:
+            self.observation_space = spaces.Dict(
+                {
+                    "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
+                    "enemies": spaces.Box(
+                        0, self.window_size, shape=(self.size, 2), dtype=float
+                    ),
+                    "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
+                    "agent_health": spaces.Box(
+                        0, self.max_agent_health, shape=(1,), dtype=int
+                    ),
+                    "enemies_health": spaces.Box(
+                        0, self.max_enemy_health, shape=(self.size,), dtype=int
+                    ),
+                }
+            )
+            # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
         if movement == "wasd":
             self.action_space = spaces.MultiDiscrete(4)
         elif movement == "stick":
@@ -84,13 +94,16 @@ class VampireWorldEnv(gym.Env):
         self.clock = None
 
     def _get_obs(self):
-        return {
-            "agent": self._agent_location,
-            "enemies": self._enemies_location,
-            "target": self._target_location,
-            "agent_health": self._agent_health,
-            "enemies_health": self._enemies_health,
-        }
+        if self.render_mode == "rgb_array":
+            return self._render_frame()
+        else:
+            return {
+                "agent": self._agent_location,
+                "enemies": self._enemies_location,
+                "target": self._target_location,
+                "agent_health": self._agent_health,
+                "enemies_health": self._enemies_health,
+            }
 
     def _get_info(self):
         return {
@@ -149,8 +162,9 @@ class VampireWorldEnv(gym.Env):
             direction = self._action_to_direction[action]
         elif self.movement == "stick":
             self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=float)
+        else:
+            raise TypeError
 
-        # We use `np.clip` to make sure we don't leave the grid
         self._agent_location = np.clip(
             self._agent_location + direction, 0, self.window_size - 1
         )
@@ -159,8 +173,6 @@ class VampireWorldEnv(gym.Env):
             -1.0 * self._get_info()["enemies_direction"] * self.enemy_speed
         )
 
-        # An episode is done iff the agent has reached the target
-        #
         enemies_under_attack_mask = (
             self._get_info()["enemies_distances"] < self.agent_attack_range
         ).astype(int)
