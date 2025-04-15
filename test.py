@@ -19,7 +19,7 @@ for _ in range(1200):
     action = env.action_space.sample()  # np.array([0, 1, 0, 0], dtype=np.int8))
 
     observation, reward, terminated, truncated, info = env.step(action)
-    print(info["avg_kills"])
+    print(info["agent_health"])
     if terminated or truncated:
         observation, info = env.reset()
     env.render()

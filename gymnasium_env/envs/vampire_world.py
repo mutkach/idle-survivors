@@ -25,12 +25,13 @@ class VampireWorldEnv(gym.Env):
         self.multiplier = window_size / self.default_size
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
-        self.attack = 10
+        self.base_damage = 5
+        self.enemy_damage = 2
         self.max_enemy_health = 50
-        self.max_agent_health = 100
+        self.max_agent_health = 20
         self.enemy_speed = 20.0
-        self.agent_attack_range = 100
-        self.enemy_attack_range = 50
+        self.agent_attack_range = 50
+        self.enemy_attack_range = 40
         self.base_reward = 0
         self.cum_reward = 0
         self.last_kills = deque()
@@ -111,6 +112,7 @@ class VampireWorldEnv(gym.Env):
 
     def _get_info(self):
         return {
+            "agent_health": self._agent_health,
             "distance": np.linalg.norm(
                 self._agent_location - self._target_location, ord=1
             ),
@@ -181,10 +183,16 @@ class VampireWorldEnv(gym.Env):
             self._get_info()["enemies_distances"] < self.agent_attack_range
         ).astype(int)
 
+        attacks_from_enemies_mask = (
+            self._get_info()["enemies_distances"] < self.enemy_attack_range
+        ).astype(int)
+
+        self._agent_health -= attacks_from_enemies_mask.sum() * self.enemy_damage
+
         assert enemies_under_attack_mask.shape == (self.size,)
 
         self._enemies_health = (
-            self._enemies_health - self.attack * enemies_under_attack_mask
+            self._enemies_health - self.base_damage * enemies_under_attack_mask
         )
 
         enemies_dead_mask = (self._enemies_health <= 0).astype(bool)
