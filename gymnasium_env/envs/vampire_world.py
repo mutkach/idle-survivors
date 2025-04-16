@@ -24,6 +24,7 @@ class VampireWorldEnv(gym.Env):
         self.default_size = 512
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
+        self.agent_speed = 5
         self.base_damage = 0
         self.enemy_damage = 5
         self.max_enemy_health = 50
@@ -147,7 +148,9 @@ class VampireWorldEnv(gym.Env):
         # We will sample the target's location randomly until it does not
         # coincide with the agent's location
         self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
+        while (
+            np.linalg.norm((self._target_location - self._agent_location), ord=2) < 200
+        ):
             self._target_location = self.np_random.integers(
                 0, self.window_size, 2
             ).astype(float)
@@ -198,7 +201,7 @@ class VampireWorldEnv(gym.Env):
             raise TypeError
 
         self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.window_size - 1
+            self._agent_location + direction * self.agent_speed, 0, self.window_size - 1
         )
 
         self._enemies_location += (
