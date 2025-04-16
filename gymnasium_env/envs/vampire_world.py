@@ -256,7 +256,7 @@ class VampireWorldEnv(gym.Env):
         if not terminated:
             if distance_to_target < 20:
                 self.cum_reward += 10000
-                terminated = true
+                terminated = True
 
         reward = self.cum_reward
         observation = self._get_obs()
