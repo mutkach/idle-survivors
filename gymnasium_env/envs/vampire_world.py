@@ -251,15 +251,14 @@ class VampireWorldEnv(gym.Env):
             self._agent_location - self._target_location, ord=1
         )
 
-        self.reward += distance_to_target / (self.window_size * 2) - self.n_steps
+        self.cum_reward += distance_to_target / (self.window_size * 2) - self.n_steps
 
         if not terminated:
             if distance_to_target < 20:
-                self.reward += 10000
+                self.cum_reward += 10000
                 terminated = true
 
-        # TODO: add Kills per X last steps as reward
-
+        reward = self.cum_reward
         observation = self._get_obs()
         info = self._get_info()
 
