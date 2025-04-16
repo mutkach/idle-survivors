@@ -37,6 +37,7 @@ class VampireWorldEnv(gym.Env):
         self.kills_window = 20
         self.avg_kills = 0
         self.render_mode = render_mode
+        self.n_steps = 0
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -126,6 +127,8 @@ class VampireWorldEnv(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
+        self.n_steps = 0
+
         # Choose the agent's location uniformly at random
         self._agent_location = self.np_random.integers(
             0, self.window_size, size=2, dtype=int
@@ -161,6 +164,7 @@ class VampireWorldEnv(gym.Env):
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         #
         #
+        self.n_steps += 1
         if self.movement == "wasd":
             direction = self._action_to_direction[action]
         elif self.movement == "stick":
@@ -240,15 +244,18 @@ class VampireWorldEnv(gym.Env):
 
         terminated = (self._agent_health < 0).astype(bool)[0]
 
-        self.cum_reward += self.avg_kills
-        reward = self.cum_reward
+        # self.cum_reward += self.avg_kills
+        # reward = self.cum_reward
 
         distance_to_target = np.linalg.norm(
-            self._agent_location - self._target_location, ord=2
+            self._agent_location - self._target_location, ord=1
         )
+
+        self.reward += distance_to_target / (self.window_size * 2) - self.n_steps
+
         if not terminated:
             if distance_to_target < 20:
-                reward = 1000
+                self.reward += 10000
                 terminated = true
 
         # TODO: add Kills per X last steps as reward
