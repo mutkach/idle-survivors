@@ -189,7 +189,11 @@ class VampireWorldEnv(gym.Env):
             else:
                 direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            direction = action
+            x, y = action
+            magnitude = np.sqrt(x**2 + y**2)
+            x = x / magnitude
+            y = y / magnitude
+            direction = np.array([x, y])
         else:
             raise TypeError
 
