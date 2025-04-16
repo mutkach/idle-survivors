@@ -152,6 +152,10 @@ class VampireWorldEnv(gym.Env):
                 0, self.window_size, 2
             ).astype(float)
 
+        self.base_distance = np.linalg.norm(
+            (self._target_location - self._agent_location), ord=2
+        )
+
         observation = self._get_obs()
         info = self._get_info()
 
@@ -166,9 +170,26 @@ class VampireWorldEnv(gym.Env):
         #
         self.n_steps += 1
         if self.movement == "wasd":
-            direction = self._action_to_direction[action]
+            # interact with env when in human mode
+            if self.render_mode == "human":
+                events = pygame.event.get()
+                keys = pygame.key.get_pressed()
+                new_action = None
+                if keys[pygame.K_LEFT]:
+                    new_action = Actions.left.value
+                if keys[pygame.K_RIGHT]:
+                    new_action = Actions.right.value
+                if keys[pygame.K_UP]:
+                    new_action = Actions.down.value
+                if keys[pygame.K_DOWN]:
+                    new_action = Actions.up.value
+                if new_action is None:
+                    new_action = action
+                direction = self._action_to_direction[new_action]
+            else:
+                direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=float)
+            direction = action
         else:
             raise TypeError
 
@@ -248,14 +269,14 @@ class VampireWorldEnv(gym.Env):
         # reward = self.cum_reward
 
         distance_to_target = np.linalg.norm(
-            self._agent_location - self._target_location, ord=1
+            self._agent_location - self._target_location, ord=2
         )
 
-        reward = ((self.window_size * 2) - distance_to_target) / (self.window_size)
+        reward = np.exp(8 - 8 * (distance_to_target / self.base_distance))
 
         if not terminated:
             if distance_to_target < 20:
-                reward += 1000
+                reward += np.exp(10)
                 terminated = True
 
         observation = self._get_obs()
