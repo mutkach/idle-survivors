@@ -251,7 +251,9 @@ class VampireWorldEnv(gym.Env):
             self._agent_location - self._target_location, ord=1
         )
 
-        self.cum_reward += distance_to_target / (self.window_size)
+        self.cum_reward += distance_to_target / (self.window_size * 2) - 0.04 * np.log(
+            self.n_steps
+        )
 
         if not terminated:
             if distance_to_target < 20:
