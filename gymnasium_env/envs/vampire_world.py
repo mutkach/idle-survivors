@@ -251,11 +251,11 @@ class VampireWorldEnv(gym.Env):
             self._agent_location - self._target_location, ord=1
         )
 
-        reward = distance_to_target / (self.window_size * 2)
+        reward = ((self.window_size * 2) - distance_to_target) / (self.window_size)
 
         if not terminated:
             if distance_to_target < 20:
-                reward += 10000
+                reward += 1000
                 terminated = True
 
         observation = self._get_obs()
