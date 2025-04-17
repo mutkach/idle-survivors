@@ -63,13 +63,10 @@ class VampireWorldEnv(gym.Env):
                     "enemies": spaces.Box(
                         0, self.window_size, shape=(self.size, 2), dtype=float
                     ),
+                    "enemies_distances": spaces.Box(
+                        0, int(self.window_size * 1.41), shape=(self.size,), dtype=float
+                    ),
                     "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                    # "agent_health": spaces.Box(
-                    #     0, self.max_agent_health, shape=(1,), dtype=int
-                    # ),
-                    # "enemies_health": spaces.Box(
-                    #     0, self.max_enemy_health, shape=(self.size,), dtype=int
-                    # ),
                 }
             )
             # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
@@ -110,6 +107,7 @@ class VampireWorldEnv(gym.Env):
             return {
                 "agent": self._agent_location,
                 "enemies": self._enemies_location,
+                "enemies_distances": self._enemies_distances,
                 "target": self._target_location,
             }
 
@@ -118,9 +116,6 @@ class VampireWorldEnv(gym.Env):
             "agent_health": self._agent_health,
             "distance": np.linalg.norm(
                 self._agent_location - self._target_location, ord=2
-            ),
-            "enemies_distances": np.linalg.norm(
-                self._agent_location - self._enemies_location, ord=2, axis=1
             ),
             "enemies_direction": (self._enemies_location - self._agent_location)
             / np.linalg.norm(self._agent_location - self._enemies_location),
@@ -137,6 +132,10 @@ class VampireWorldEnv(gym.Env):
             self.np_random.integers(0, self.window_size, size=self.size * 2, dtype=int)
             .reshape(self.size, 2)
             .astype(float)
+        )
+
+        self._enemies_distances = np.linalg.norm(
+            self._agent_location - self._enemies_location, ord=2, axis=1
         )
         self._enemies_health = (
             np.ones((self.size), dtype=int) * self.config.max_enemy_health
@@ -203,16 +202,14 @@ class VampireWorldEnv(gym.Env):
         self._enemies_location += (
             -1.0 * self._get_info()["enemies_direction"] * self.config.enemy_speed
         )
-        enemies_under_attack_mask = (
-            self._get_info()["enemies_distances"] < self.config.agent_attack_range
-        ).astype(int)
+        self._enemies_distances = np.linalg.norm(
+            self._agent_location - self._enemies_location, ord=2, axis=1
+        )
+
         attacks_from_enemies_mask = (
-            self._get_info()["enemies_distances"] < self.config.enemy_attack_range
+            self._enemies_distances < self.config.enemy_attack_range
         ).astype(int)
         self._agent_health -= attacks_from_enemies_mask.sum() * self.config.enemy_damage
-        self._enemies_health = (
-            self._enemies_health - self.config.agent_damage * enemies_under_attack_mask
-        )
         terminated = (self._agent_health < 0).astype(bool)[0]
 
         distance_to_target = np.linalg.norm(
@@ -220,7 +217,7 @@ class VampireWorldEnv(gym.Env):
         )
 
         reward = 1 - distance_to_target / self.base_distance
-        reward -= attacks_from_enemies_mask.sum() * self.config.enemy_damage
+        reward -= self.config.max_agent_health - self._agent_health
 
         if not terminated:
             if distance_to_target < 40:
