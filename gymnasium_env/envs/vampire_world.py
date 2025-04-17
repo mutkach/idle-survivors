@@ -28,10 +28,12 @@ class VampireWorldEnv(gym.Env):
         self.base_damage = 0
         self.enemy_damage = 5
         self.max_enemy_health = 50
+        self.agent_radius = 15
+        self.enemy_radius = 10
         self.max_agent_health = 50
         self.enemy_speed = 0.0
         self.agent_attack_range = 30
-        self.enemy_attack_range = 10
+        self.enemy_attack_range = 20
         self.base_reward = 0
         self.cum_reward = 0
         self.last_kills = deque()
@@ -218,16 +220,11 @@ class VampireWorldEnv(gym.Env):
 
         self._agent_health -= attacks_from_enemies_mask.sum() * self.enemy_damage
 
-        assert enemies_under_attack_mask.shape == (self.size,)
-
         self._enemies_health = (
             self._enemies_health - self.base_damage * enemies_under_attack_mask
         )
 
         enemies_dead_mask = (self._enemies_health <= 0).astype(bool)
-
-        assert len(enemies_dead_mask.shape) == 1
-        assert len(enemies_dead_mask) == self.size
 
         num_dead_enemies = enemies_dead_mask.sum()
 
@@ -280,10 +277,11 @@ class VampireWorldEnv(gym.Env):
         )
 
         reward = 1 - distance_to_target / self.base_distance
+        reward -= attacks_from_enemies_mask.sum() * self.enemy_damage
 
         if not terminated:
             if distance_to_target < 40:
-                reward += 100
+                reward += 111
                 terminated = True
 
         observation = self._get_obs()
@@ -330,7 +328,7 @@ class VampireWorldEnv(gym.Env):
             canvas,
             (0, 0, 255),
             (self._agent_location.astype(int)),  # * pix_square_size,
-            pix_square_size * 15,
+            pix_square_size * self.agent_radius,
         )
 
         for x in range(self.size):
@@ -338,7 +336,7 @@ class VampireWorldEnv(gym.Env):
                 canvas,
                 (245, 245, 245),
                 self._enemies_location[x].astype(int),
-                pix_square_size * 10,
+                pix_square_size * self.enemy_radius,
             )
 
         # Finally, add some gridlines

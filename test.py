@@ -9,7 +9,7 @@ env = gymnasium.make(
     window_size=512,
     render_mode="human",
     size=20,
-    movement="stick",
+    movement="wasd",
 )
 
 
