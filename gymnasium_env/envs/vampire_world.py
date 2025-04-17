@@ -217,7 +217,7 @@ class VampireWorldEnv(gym.Env):
         )
 
         reward = 1 - distance_to_target / self.base_distance
-        reward -= self.config.max_agent_health - self._agent_health[0]
+        reward -= self.config.max_agent_health / self._agent_health[0]
 
         if not terminated:
             if distance_to_target < 40:
