@@ -5,6 +5,8 @@ import pygame
 import numpy as np
 from scipy import stats
 from collections import deque
+import pathlib
+from omegaconf import OmegaConf
 
 
 class Actions(Enum):
@@ -14,32 +16,34 @@ class Actions(Enum):
     down = 3
 
 
+DEFAULT_SIZE = 512
+
+
 class VampireWorldEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 25}
 
     def __init__(
-        self, render_mode=None, size=5, window_size=512, movement: str = "wasd"
+        self,
+        render_mode=None,
+        size=5,
+        window_size=512,
+        movement: str = "wasd",
+        config: pathlib.Path = None,
     ):
         self.size = size  # The size of the square grid
-        self.default_size = 512
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
-        self.agent_speed = 5
-        self.base_damage = 0
-        self.enemy_damage = 5
-        self.max_enemy_health = 50
-        self.agent_radius = 15
-        self.enemy_radius = 10
-        self.max_agent_health = 50
-        self.enemy_speed = 0.0
-        self.agent_attack_range = 30
-        self.enemy_attack_range = 20
+        self.render_mode = render_mode
+
+        if not config:
+            self.config = OmegaConf.load("configs/base_vampire.yaml")
+        else:
+            self.config = OmegaConf.load(config)
+
         self.base_reward = 0
         self.cum_reward = 0
         self.last_kills = deque()
-        self.kills_window = 20
         self.avg_kills = 0
-        self.render_mode = render_mode
         self.n_steps = 0
 
         # Observations are dictionaries with the agent's and the target's location.
@@ -60,12 +64,12 @@ class VampireWorldEnv(gym.Env):
                         0, self.window_size, shape=(self.size, 2), dtype=float
                     ),
                     "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                    "agent_health": spaces.Box(
-                        0, self.max_agent_health, shape=(1,), dtype=int
-                    ),
-                    "enemies_health": spaces.Box(
-                        0, self.max_enemy_health, shape=(self.size,), dtype=int
-                    ),
+                    # "agent_health": spaces.Box(
+                    #     0, self.max_agent_health, shape=(1,), dtype=int
+                    # ),
+                    # "enemies_health": spaces.Box(
+                    #     0, self.max_enemy_health, shape=(self.size,), dtype=int
+                    # ),
                 }
             )
             # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
@@ -107,8 +111,6 @@ class VampireWorldEnv(gym.Env):
                 "agent": self._agent_location,
                 "enemies": self._enemies_location,
                 "target": self._target_location,
-                "agent_health": self._agent_health,
-                "enemies_health": self._enemies_health,
             }
 
     def _get_info(self):
@@ -122,31 +124,24 @@ class VampireWorldEnv(gym.Env):
             ),
             "enemies_direction": (self._enemies_location - self._agent_location)
             / np.linalg.norm(self._agent_location - self._enemies_location),
-            "cum_reward": self.cum_reward,
-            "avg_kills": self.avg_kills,
         }
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
-
-        self.n_steps = 0
-
         # Choose the agent's location uniformly at random
         self._agent_location = self.np_random.integers(
             0, self.window_size, size=2, dtype=int
         ).astype(float)
-
         self._enemies_location = (
             self.np_random.integers(0, self.window_size, size=self.size * 2, dtype=int)
             .reshape(self.size, 2)
             .astype(float)
         )
-
-        self._enemies_health = np.ones((self.size), dtype=int) * self.max_enemy_health
-
-        self._agent_health = np.array([self.max_agent_health], dtype=int)
-
+        self._enemies_health = (
+            np.ones((self.size), dtype=int) * self.config.max_enemy_health
+        )
+        self._agent_health = np.array([self.config.max_agent_health], dtype=int)
         # We will sample the target's location randomly until it does not
         # coincide with the agent's location
         self._target_location = self._agent_location
@@ -171,8 +166,6 @@ class VampireWorldEnv(gym.Env):
 
     def step(self, action):
         # Map the action (element of {0,1,2,3}) to the direction we walk in
-        #
-        #
         self.n_steps += 1
         if self.movement == "wasd":
             # interact with env when in human mode
@@ -203,81 +196,31 @@ class VampireWorldEnv(gym.Env):
             raise TypeError
 
         self._agent_location = np.clip(
-            self._agent_location + direction * self.agent_speed, 0, self.window_size - 1
+            self._agent_location + direction * self.config.agent_speed,
+            0,
+            self.window_size - 1,
         )
-
         self._enemies_location += (
-            -1.0 * self._get_info()["enemies_direction"] * self.enemy_speed
+            -1.0 * self._get_info()["enemies_direction"] * self.config.enemy_speed
         )
-
         enemies_under_attack_mask = (
-            self._get_info()["enemies_distances"] < self.agent_attack_range
+            self._get_info()["enemies_distances"] < self.config.agent_attack_range
         ).astype(int)
-
         attacks_from_enemies_mask = (
-            self._get_info()["enemies_distances"] < self.enemy_attack_range
+            self._get_info()["enemies_distances"] < self.config.enemy_attack_range
         ).astype(int)
-
-        self._agent_health -= attacks_from_enemies_mask.sum() * self.enemy_damage
-
+        self._agent_health -= attacks_from_enemies_mask.sum() * self.config.enemy_damage
         self._enemies_health = (
-            self._enemies_health - self.base_damage * enemies_under_attack_mask
+            self._enemies_health - self.config.agent_damage * enemies_under_attack_mask
         )
-
-        enemies_dead_mask = (self._enemies_health <= 0).astype(bool)
-
-        num_dead_enemies = enemies_dead_mask.sum()
-
-        self.last_kills.append(num_dead_enemies)
-        if len(self.last_kills) > self.kills_window:
-            self.last_kills.popleft()
-        self.avg_kills = sum(self.last_kills) / self.kills_window
-
-        if num_dead_enemies > 0:
-            random_positions = self.np_random.integers(
-                0, self.window_size * 4, size=num_dead_enemies, dtype=int
-            )
-            positions = np.zeros((num_dead_enemies, 2), dtype=int)
-
-            edge_indices = random_positions // self.window_size
-            offsets = random_positions % self.window_size
-
-            # with help from Claude
-            mask = edge_indices == 0
-            positions[mask, 0] = offsets[mask]
-            positions[mask, 1] = 0
-
-            # Handle right edge (edge_index == 1)
-            mask = edge_indices == 1
-            positions[mask, 0] = self.window_size - 1
-            positions[mask, 1] = offsets[mask]
-
-            # Handle bottom edge (edge_index == 2)
-            mask = edge_indices == 2
-            positions[mask, 0] = offsets[mask]
-            positions[mask, 1] = self.window_size - 1
-
-            # Handle left edge (edge_index == 3)
-            mask = edge_indices == 3
-            positions[mask, 0] = 0
-            positions[mask, 1] = offsets[mask]
-
-            # to choose which side of the screen they should spawn
-
-            self._enemies_location[enemies_dead_mask] = positions
-            self._enemies_health[enemies_dead_mask] = self.max_enemy_health
-
         terminated = (self._agent_health < 0).astype(bool)[0]
-
-        # self.cum_reward += self.avg_kills
-        # reward = self.cum_reward
 
         distance_to_target = np.linalg.norm(
             self._agent_location - self._target_location, ord=2
         )
 
         reward = 1 - distance_to_target / self.base_distance
-        reward -= attacks_from_enemies_mask.sum() * self.enemy_damage
+        reward -= attacks_from_enemies_mask.sum() * self.config.enemy_damage
 
         if not terminated:
             if distance_to_target < 40:
@@ -321,14 +264,14 @@ class VampireWorldEnv(gym.Env):
                 canvas,
                 (120, 120, 120),
                 (self._agent_location.astype(int)),  # * pix_square_size,
-                pix_square_size * self.agent_attack_range,
+                pix_square_size * self.config.agent_attack_range,
             )
         # Now we draw the agent
         pygame.draw.circle(
             canvas,
             (0, 0, 255),
             (self._agent_location.astype(int)),  # * pix_square_size,
-            pix_square_size * self.agent_radius,
+            pix_square_size * self.config.agent_radius,
         )
 
         for x in range(self.size):
@@ -336,7 +279,7 @@ class VampireWorldEnv(gym.Env):
                 canvas,
                 (245, 245, 245),
                 self._enemies_location[x].astype(int),
-                pix_square_size * self.enemy_radius,
+                pix_square_size * self.config.enemy_radius,
             )
 
         # Finally, add some gridlines

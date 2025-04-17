@@ -1,0 +1,13 @@
+agent_speed: 5
+agent_damage: 0
+enemy_damage: 5
+max_enemy_health: 50
+max_agent_health: 50
+agent_radius: 15
+enemy_radius: 10
+enemy_speed : 0.0
+agent_attack_range : 30
+enemy_attack_range : 20
+base_reward : 0
+kills_window : 20
+avg_kills : 0
