@@ -217,7 +217,7 @@ class VampireWorldEnv(gym.Env):
         )
 
         reward = 1 - distance_to_target / self.base_distance
-        reward -= 1 - self._agent_health[0] / self.config.max_agent_health
+        reward -= attacks_from_enemies_mask.sum() > 0
 
         if not terminated:
             if distance_to_target < 40:
