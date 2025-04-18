@@ -214,17 +214,16 @@ class VampireWorldEnv(gym.Env):
             self._enemies_distances < self.config.enemy_attack_range
         ).astype(int)
         self._agent_health -= attacks_from_enemies_mask.sum() * self.config.enemy_damage
-        terminated = (self._agent_health < 0).astype(bool)[0]
-
-        distance_to_target = np.linalg.norm(
-            self._agent_location - self._target_location, ord=2
-        )
-
-        reward = 1 - distance_to_target / self.base_distance
-        reward -= attacks_from_enemies_mask.sum() > 0
-
-        if not terminated:
-            if distance_to_target < 40:
+        if (self._agent_health < 0).astype(bool)[0] == True:
+            terminated = True
+            reward = -100
+        else:
+            distance_to_target = np.linalg.norm(
+                self._agent_location - self._target_location, ord=2
+            )
+            reward = 1 - distance_to_target / self.base_distance
+            reward -= attacks_from_enemies_mask.sum() > 0
+            if distance_to_target < 30:
                 reward += 111
                 terminated = True
 
