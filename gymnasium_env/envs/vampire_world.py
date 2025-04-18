@@ -60,6 +60,9 @@ class VampireWorldEnv(gym.Env):
             self.observation_space = spaces.Dict(
                 {
                     "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
+                    "agent_health": spaces.Box(
+                        0, self.config.max_agent_health, shape=(2,), dtype=float
+                    ),
                     "enemies": spaces.Box(
                         0, self.window_size, shape=(self.size, 2), dtype=float
                     ),
@@ -106,6 +109,7 @@ class VampireWorldEnv(gym.Env):
         else:
             return {
                 "agent": self._agent_location,
+                "agent_health": self._agent_health,
                 "enemies": self._enemies_location,
                 "enemies_distances": self._enemies_distances,
                 "target": self._target_location,

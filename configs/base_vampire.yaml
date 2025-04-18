@@ -7,7 +7,7 @@ agent_radius: 15
 enemy_radius: 10
 enemy_speed : 0.0
 agent_attack_range : 30
-enemy_attack_range : 20
+enemy_attack_range : 10
 base_reward : 0
 kills_window : 20
 avg_kills : 0
