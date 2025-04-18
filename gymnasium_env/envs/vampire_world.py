@@ -207,15 +207,17 @@ class VampireWorldEnv(gym.Env):
         )
 
         self._enemies_sense = []
-        wdth = self.config.width
-        half = wdth//2
+        wdth = self.config.sense_width
+        half = wdth // 2
         counts = []
-        for ox,oy in product([-1,0,1], [-1,0,1]):
-            #x+ox*wdth-step:x+ox*wdth+step, y+oy*wdth-step:y+oy*wdth+step) 
+        for ox, oy in product([-1, 0, 1], [-1, 0, 1]):
+            # x+ox*wdth-step:x+ox*wdth+step, y+oy*wdth-step:y+oy*wdth+step)
             if ox == 0 and oy == 0:
                 continue
-            h=np.linalg.norm(self._enemies_location-np.array([x+ox*wdth, y+oy*wdth]), ord=1)
-            counts.append((h<half).sum())
+            h = np.linalg.norm(
+                self._enemies_location - np.array([x + ox * wdth, y + oy * wdth]), ord=1
+            )
+            counts.append((h < half).sum())
 
         self._enemies_sense = np.array(counts)
 
@@ -239,6 +241,8 @@ class VampireWorldEnv(gym.Env):
             if distance_to_target < 30:
                 reward += 111
                 terminated = True
+            else:
+                terminated = False
 
         observation = self._get_obs()
         info = self._get_info()

@@ -20,7 +20,8 @@ model = A2C.load(
 )
 
 for _ in range(1200):
-    action, _ = model.predict(observation)
+    # action, _ = model.predict(observation)
+    action = env.action_space.sample()
     print(action)
     observation, reward, terminated, truncated, info = env.step(action)
 
