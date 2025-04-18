@@ -29,7 +29,7 @@ for _ in range(1200):
         if not terminated
         else f"TERMINATED WITH REWARD {reward}"
     )
-    print(info["agent_health"])
+    # print(info["agent_health"])
     if terminated or truncated:
         observation, info = env.reset()
     env.render()

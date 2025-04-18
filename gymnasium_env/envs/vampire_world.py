@@ -6,6 +6,7 @@ import numpy as np
 from scipy import stats
 from collections import deque
 import pathlib
+from itertools import product
 from omegaconf import OmegaConf
 
 
@@ -61,14 +62,12 @@ class VampireWorldEnv(gym.Env):
                 {
                     "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
                     "agent_health": spaces.Box(
-                        0, self.config.max_agent_health, shape=(2,), dtype=float
+                        0, self.config.max_agent_health, shape=(1,), dtype=int
                     ),
                     "enemies": spaces.Box(
                         0, self.window_size, shape=(self.size, 2), dtype=float
                     ),
-                    "enemies_distances": spaces.Box(
-                        0, int(self.window_size * 1.41), shape=(self.size,), dtype=float
-                    ),
+                    "enemies_sense": spaces.Box(0, self.size, shape=(8,), dtype=int),
                     "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
                 }
             )
@@ -111,13 +110,12 @@ class VampireWorldEnv(gym.Env):
                 "agent": self._agent_location,
                 "agent_health": self._agent_health,
                 "enemies": self._enemies_location,
-                "enemies_distances": self._enemies_distances,
+                "enemies_sense": self._enemies_sense,
                 "target": self._target_location,
             }
 
     def _get_info(self):
         return {
-            "agent_health": self._agent_health,
             "distance": np.linalg.norm(
                 self._agent_location - self._target_location, ord=2
             ),
@@ -141,6 +139,7 @@ class VampireWorldEnv(gym.Env):
         self._enemies_distances = np.linalg.norm(
             self._agent_location - self._enemies_location, ord=2, axis=1
         )
+        self._enemies_sense = np.zeros((8,), dtype=int)
         self._enemies_health = (
             np.ones((self.size), dtype=int) * self.config.max_enemy_health
         )
@@ -206,6 +205,20 @@ class VampireWorldEnv(gym.Env):
         self._enemies_location += (
             -1.0 * self._get_info()["enemies_direction"] * self.config.enemy_speed
         )
+
+        self._enemies_sense = []
+        wdth = self.config.width
+        half = wdth//2
+        counts = []
+        for ox,oy in product([-1,0,1], [-1,0,1]):
+            #x+ox*wdth-step:x+ox*wdth+step, y+oy*wdth-step:y+oy*wdth+step) 
+            if ox == 0 and oy == 0:
+                continue
+            h=np.linalg.norm(self._enemies_location-np.array([x+ox*wdth, y+oy*wdth]), ord=1)
+            counts.append((h<half).sum())
+
+        self._enemies_sense = np.array(counts)
+
         self._enemies_distances = np.linalg.norm(
             self._agent_location - self._enemies_location, ord=2, axis=1
         )
