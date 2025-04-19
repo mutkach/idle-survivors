@@ -15,6 +15,7 @@ class Actions(Enum):
     up = 1
     left = 2
     down = 3
+    nothing = 4
 
 
 DEFAULT_SIZE = 512
@@ -61,9 +62,9 @@ class VampireWorldEnv(gym.Env):
             self.observation_space = spaces.Dict(
                 {
                     "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                    "enemies_sense": spaces.Box(0, self.size, shape=(8,), dtype=int),
+                    "enemies_sense": spaces.Box(0, self.size, shape=(9,), dtype=int),
                     "enemies_locations": spaces.Box(
-                        0, self.window_size, shape=(self.size, 2), dtype=int
+                        0, self.window_size, shape=(self.size, 2), dtype=float
                     ),
                     "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
                     "target_distance": spaces.Box(
@@ -71,34 +72,21 @@ class VampireWorldEnv(gym.Env):
                     ),
                 }
             )
-            # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
         if movement == "wasd":
-            self.action_space = spaces.Discrete(4)
+            self.action_space = spaces.Discrete(5)
         elif movement == "stick":
             self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=float)
 
-        """
-        The following dictionary maps abstract actions from `self.action_space` to 
-        the direction we will walk in if that action is taken.
-        i.e. 0 corresponds to "right", 1 to "up" etc.
-        """
         self._action_to_direction = {
             Actions.right.value: np.array([1, 0]),
             Actions.up.value: np.array([0, 1]),
             Actions.left.value: np.array([-1, 0]),
             Actions.down.value: np.array([0, -1]),
+            Actions.nothing.value: np.array([0, 0]),
         }
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-
-        """
-        If human-rendering is used, `self.window` will be a reference
-        to the window that we draw to. `self.clock` will be a clock that is used
-        to ensure that the environment is rendered at the correct framerate in
-        # human-mode. They will remain `None` until human-mode is used for the
-        first time.
-        """
         self.window = None
         self.clock = None
 
@@ -122,6 +110,32 @@ class VampireWorldEnv(gym.Env):
             "enemies_direction": (self._enemies_location - self._agent_location)
             / np.linalg.norm(self._agent_location - self._enemies_location),
         }
+    
+    def sense_enemies(self, location: np.ndarray):
+        wdth = self.config.sense_width
+        half = wdth // 2
+        counts = []
+        x = location[0]
+        y = location[1]
+        for ox, oy in product([-1, 0, 1], [-1, 0, 1]):
+            # x+ox*wdth-step:x+ox*wdth+step, y+oy*wdth-step:y+oy*wdth+step)
+            h = np.linalg.norm(
+                np.array([x + ox * wdth, y + oy * wdth]) - self._enemies_location,
+                ord=np.inf,
+                axis=1
+            )
+            assert(h.shape[0] == self.size)
+            counts.append((h < half).sum())
+        return np.array(counts, dtype=np.int32)
+
+
+    def reward_for_place(self, location: np.ndarray, n_steps=100):
+        enemies_sense = self.sense_enemies(location)
+        target_distance = np.linalg.norm(location - self._target_location, ord=2)
+        reward = np.exp(3 - target_distance / self.base_distance)
+        reward -= np.exp(1 + enemies_sense.sum())
+        reward -= np.log(n_steps) / 3
+        return reward
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -135,11 +149,10 @@ class VampireWorldEnv(gym.Env):
             .reshape(self.size, 2)
             .astype(float)
         )
-
         self._enemies_distances = np.linalg.norm(
             self._agent_location - self._enemies_location, ord=2, axis=1
         )
-        self._enemies_sense = np.zeros((8,), dtype=int)
+        self._enemies_sense = np.zeros((9,), dtype=int)
         self._enemies_health = (
             np.ones((self.size), dtype=int) * self.config.max_enemy_health
         )
@@ -159,13 +172,10 @@ class VampireWorldEnv(gym.Env):
         )[None]
 
         self.base_distance = self._target_distance[0]
-
         observation = self._get_obs()
         info = self._get_info()
-
         if self.render_mode == "human":
             self._render_frame()
-
         return observation, info
 
     def step(self, action):
@@ -191,7 +201,7 @@ class VampireWorldEnv(gym.Env):
             else:
                 direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            x, y = action
+            x,y = action
             magnitude = np.sqrt(x**2 + y**2)
             x = x / magnitude
             y = y / magnitude
@@ -208,22 +218,8 @@ class VampireWorldEnv(gym.Env):
             -1.0 * self._get_info()["enemies_direction"] * self.config.enemy_speed
         )
 
-        self._enemies_sense = []
-        wdth = self.config.sense_width
-        half = wdth // 2
-        counts = []
-        x = self._agent_location[0]
-        y = self._agent_location[1]
-        for ox, oy in product([-1, 0, 1], [-1, 0, 1]):
-            # x+ox*wdth-step:x+ox*wdth+step, y+oy*wdth-step:y+oy*wdth+step)
-            if ox == 0 and oy == 0:
-                continue
-            h = np.abs(
-                np.array([x + ox * wdth, y + oy * wdth]) - self._enemies_location
-            ).sum(axis=1)
-            counts.append((h < half).sum())
-
-        self._enemies_sense = np.array(counts)
+        self._enemies_sense = self.sense_enemies(self._agent_location)
+        
 
         self._enemies_distances = np.linalg.norm(
             self._agent_location - self._enemies_location, ord=2, axis=1
@@ -244,7 +240,7 @@ class VampireWorldEnv(gym.Env):
             reward = -200
         else:
             reward = np.exp(3 - self._target_distance[0] / self.base_distance)
-            reward -= np.exp(1 + self._enemies_sense.sum())
+            reward -= np.exp(1 + 3*self._enemies_sense.sum())
             reward -= np.log(self.n_steps) / 3
             if self._target_distance < 30:
                 reward += 100
