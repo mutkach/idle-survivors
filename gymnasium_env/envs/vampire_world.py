@@ -210,13 +210,15 @@ class VampireWorldEnv(gym.Env):
         wdth = self.config.sense_width
         half = wdth // 2
         counts = []
+        x = self._agent_location[0]
+        y = self._agent_location[1]
         for ox, oy in product([-1, 0, 1], [-1, 0, 1]):
             # x+ox*wdth-step:x+ox*wdth+step, y+oy*wdth-step:y+oy*wdth+step)
             if ox == 0 and oy == 0:
                 continue
-            h = np.linalg.norm(
-                self._enemies_location - np.array([x + ox * wdth, y + oy * wdth]), ord=1
-            )
+            h = np.abs(
+                np.array([x + ox * wdth, y + oy * wdth]) - self._enemies_location
+            ).sum(axis=1)
             counts.append((h < half).sum())
 
         self._enemies_sense = np.array(counts)

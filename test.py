@@ -15,15 +15,13 @@ env = gymnasium.make(
 
 
 observation, _ = env.reset()
-model = A2C.load(
-    "./models/vampire-a2c-5enemies-nsteps2048-normalized-entcoef0.05-vf0.25-sde"
-)
+model = A2C.load("./models/vampire-a2c-v1")
 
 for _ in range(1200):
     # action, _ = model.predict(observation)
     action = env.action_space.sample()
-    print(action)
     observation, reward, terminated, truncated, info = env.step(action)
+    print(observation["enemies_sense"])
 
     print(
         f"Current_reward: {reward}"
