@@ -109,7 +109,7 @@ class VampireWorldEnv(gym.Env):
             return {
                 "agent": self._agent_location,
                 "enemies_sense": self._enemies_sense,
-                "enemies_location": self._enemies_location,
+                "enemies_locations": self._enemies_location,
                 "target": self._target_location,
                 "target_distance": self._target_distance,
             }
