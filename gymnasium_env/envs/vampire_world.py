@@ -61,14 +61,11 @@ class VampireWorldEnv(gym.Env):
             self.observation_space = spaces.Dict(
                 {
                     "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                    "agent_health": spaces.Box(
-                        0, self.config.max_agent_health, shape=(1,), dtype=int
-                    ),
-                    "enemies": spaces.Box(
-                        0, self.window_size, shape=(self.size, 2), dtype=float
-                    ),
                     "enemies_sense": spaces.Box(0, self.size, shape=(8,), dtype=int),
                     "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
+                    "target_distance": spaces.Box(
+                        0, self.window_size, shape=(1,), dtype=float
+                    ),
                 }
             )
             # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
@@ -108,10 +105,9 @@ class VampireWorldEnv(gym.Env):
         else:
             return {
                 "agent": self._agent_location,
-                "agent_health": self._agent_health,
-                "enemies": self._enemies_location,
                 "enemies_sense": self._enemies_sense,
                 "target": self._target_location,
+                "target_distance": self._target_distance,
             }
 
     def _get_info(self):
@@ -154,9 +150,11 @@ class VampireWorldEnv(gym.Env):
                 0, self.window_size, 2
             ).astype(float)
 
-        self.base_distance = np.linalg.norm(
+        self._target_distance = np.linalg.norm(
             (self._target_location - self._agent_location), ord=2
         )
+
+        self.base_distance = self._target_distance
 
         observation = self._get_obs()
         info = self._get_info()
@@ -231,17 +229,17 @@ class VampireWorldEnv(gym.Env):
             self._enemies_distances < self.config.enemy_attack_range
         ).astype(int)
         self._agent_health -= attacks_from_enemies_mask.sum() * self.config.enemy_damage
+        self._target_distance = np.linalg.norm(
+            self._agent_location - self._target_location, ord=2
+        )
         if (self._agent_health < 0).astype(bool)[0] == True:
             terminated = True
-            reward = -100
+            reward = -200
         else:
-            distance_to_target = np.linalg.norm(
-                self._agent_location - self._target_location, ord=2
-            )
-            reward = 1 - distance_to_target / self.base_distance
+            reward = 1 - self._target_distance / self.base_distance
             reward -= attacks_from_enemies_mask.sum() > 0
-            if distance_to_target < 30:
-                reward += 111
+            if self._target_distance < 30:
+                reward += 100
                 terminated = True
             else:
                 terminated = False
