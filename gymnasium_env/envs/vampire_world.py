@@ -239,8 +239,8 @@ class VampireWorldEnv(gym.Env):
             terminated = True
             reward = -200
         else:
-            reward = np.exp(1 + self._target_distance[0] / self.base_distance)
-            reward -= np.exp(1 + attacks_from_enemies_mask.sum())
+            reward = np.exp(3 - self._target_distance[0] / self.base_distance)
+            reward -= np.exp(1 + self._enemies_sense.sum())
             reward -= np.log(self.n_steps) / 5
             if self._target_distance < 30:
                 reward += 100
