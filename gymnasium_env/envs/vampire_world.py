@@ -62,6 +62,9 @@ class VampireWorldEnv(gym.Env):
                 {
                     "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
                     "enemies_sense": spaces.Box(0, self.size, shape=(8,), dtype=int),
+                    "enemies_locations": spaces.Box(
+                        0, self.size, shape=(self.size, 2), dtype=int
+                    ),
                     "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
                     "target_distance": spaces.Box(
                         0, np.sqrt(2) * self.window_size, shape=(1,), dtype=float
@@ -106,6 +109,7 @@ class VampireWorldEnv(gym.Env):
             return {
                 "agent": self._agent_location,
                 "enemies_sense": self._enemies_sense,
+                "enemies_location": self._enemies_location,
                 "target": self._target_location,
                 "target_distance": self._target_distance,
             }
@@ -241,7 +245,7 @@ class VampireWorldEnv(gym.Env):
         else:
             reward = np.exp(3 - self._target_distance[0] / self.base_distance)
             reward -= np.exp(1 + self._enemies_sense.sum())
-            reward -= np.log(self.n_steps) / 5
+            reward -= np.log(self.n_steps) / 3
             if self._target_distance < 30:
                 reward += 100
                 terminated = True
