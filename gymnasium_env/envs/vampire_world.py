@@ -63,7 +63,7 @@ class VampireWorldEnv(gym.Env):
                     "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
                     "enemies_sense": spaces.Box(0, self.size, shape=(8,), dtype=int),
                     "enemies_locations": spaces.Box(
-                        0, self.size, shape=(self.size, 2), dtype=int
+                        0, self.window_size, shape=(self.size, 2), dtype=int
                     ),
                     "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
                     "target_distance": spaces.Box(
