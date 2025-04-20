@@ -123,6 +123,8 @@ class VampireWorldEnv(gym.Env):
             self._target_location - self._agent_location, ord=2
         )
 
+        self.n_steps = 0
+
         observation = self._get_obs()
         info = self._get_info()
         if self.render_mode == "human":
