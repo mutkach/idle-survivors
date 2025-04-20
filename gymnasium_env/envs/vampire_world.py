@@ -36,39 +36,40 @@ class VampireWorldEnv(gym.Env):
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
         self.render_mode = render_mode
+        self.n_steps = 0
 
         if not config:
             self.config = OmegaConf.load("configs/base_vampire.yaml")
         else:
             self.config = OmegaConf.load(config)
-
-        self.base_reward = 0
-        self.cum_reward = 0
-        self.last_kills = deque()
-        self.avg_kills = 0
-        self.n_steps = 0
-
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
         # i.e. MultiDiscrete([size, size]).
         if self.render_mode == "rgb_array":
-            self.observation_space = spaces.Box(
-                low=0,
-                high=255,
-                shape=(self.window_size, self.window_size, 3),
-                dtype=np.uint8,
+            self.observation_space = spaces.Dict(
+                {
+                    "agent_location": spaces.Box(
+                        0, self.window_size, shape=(2,), dtype=float
+                    ),
+                    "target_location": spaces.Box(
+                        0, self.window_size, shape=(2,), dtype=float
+                    ),
+                    "screen": spaces.Box(
+                        low=0,
+                        high=255,
+                        shape=(self.window_size, self.window_size, 3),
+                        dtype=np.uint8,
+                    ),
+                }
             )
         else:
             self.observation_space = spaces.Dict(
                 {
-                    "agent": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                    "enemies_sense": spaces.Box(0, self.size, shape=(9,), dtype=int),
-                    "enemies_locations": spaces.Box(
-                        0, self.window_size, shape=(self.size, 2), dtype=float
+                    "agent_location": spaces.Box(
+                        0, self.window_size, shape=(2,), dtype=float
                     ),
-                    "target": spaces.Box(0, self.window_size, shape=(2,), dtype=float),
-                    "target_distance": spaces.Box(
-                        0, np.sqrt(2) * self.window_size, shape=(1,), dtype=float
+                    "target_location": spaces.Box(
+                        0, self.window_size, shape=(2,), dtype=float
                     ),
                 }
             )
@@ -95,83 +96,33 @@ class VampireWorldEnv(gym.Env):
             return self._render_frame()
         else:
             return {
-                "agent": self._agent_location,
-                "enemies_sense": self._enemies_sense,
-                "enemies_locations": self._enemies_location,
-                "target": self._target_location,
-                "target_distance": self._target_distance,
+                "agent_location": self._agent_location,
+                "target_location": self._target_location,
             }
 
     def _get_info(self):
-        return {
-            "distance": np.linalg.norm(
-                self._agent_location - self._target_location, ord=2
-            ),
-            "enemies_direction": (self._enemies_location - self._agent_location)
-            / np.linalg.norm(self._agent_location - self._enemies_location),
-        }
-    
-    def sense_enemies(self, location: np.ndarray):
-        wdth = self.config.sense_width
-        half = wdth // 2
-        counts = []
-        x = location[0]
-        y = location[1]
-        for ox, oy in product([-1, 0, 1], [-1, 0, 1]):
-            # x+ox*wdth-step:x+ox*wdth+step, y+oy*wdth-step:y+oy*wdth+step)
-            h = np.linalg.norm(
-                np.array([x + ox * wdth, y + oy * wdth]) - self._enemies_location,
-                ord=np.inf,
-                axis=1
-            )
-            assert(h.shape[0] == self.size)
-            counts.append((h < half).sum())
-        return np.array(counts, dtype=np.int32)
-
+        return {}
 
     def reward_for_place(self, location: np.ndarray, n_steps=100):
-        enemies_sense = self.sense_enemies(location)
-        target_distance = np.linalg.norm(location - self._target_location, ord=2)
-        reward = np.exp(3 - target_distance / self.base_distance)
-        reward -= np.exp(1 + enemies_sense.sum())
-        reward -= np.log(n_steps) / 3
         return reward
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
-        # Choose the agent's location uniformly at random
-        self._agent_location = self.np_random.integers(
-            0, self.window_size, size=2, dtype=int
-        ).astype(float)
-        self._enemies_location = (
-            self.np_random.integers(0, self.window_size, size=self.size * 2, dtype=int)
-            .reshape(self.size, 2)
-            .astype(float)
-        )
-        self._enemies_distances = np.linalg.norm(
-            self._agent_location - self._enemies_location, ord=2, axis=1
-        )
-        self._enemies_sense = np.zeros((9,), dtype=int)
-        self._enemies_health = (
-            np.ones((self.size), dtype=int) * self.config.max_enemy_health
-        )
-        self._agent_health = np.array([self.config.max_agent_health], dtype=int)
-        # We will sample the target's location randomly until it does not
-        # coincide with the agent's location
-        self._target_location = self._agent_location
+
+        self._agent_location = np.random.randint(0, self.window_size, size=(2,))
+
+        self._target_location = np.random.randint(0, self.window_size, size=(2,))
         while (
-            np.linalg.norm((self._target_location - self._agent_location), ord=2) < 200
+            np.linalg.norm(self._target_location - self._agent_location, ord=1)
+            < self.window_size // 2
         ):
-            self._target_location = self.np_random.integers(
-                0, self.window_size, 2
-            ).astype(float)
+            self._target_location = np.random.randint(0, self.window_size, size=(2,))
 
         self._target_distance = np.linalg.norm(
-            (self._target_location - self._agent_location), ord=2
-        )[None]
+            self._target_location - self._agent_location, ord=2
+        )
 
-        self.base_distance = self._target_distance[0]
         observation = self._get_obs()
         info = self._get_info()
         if self.render_mode == "human":
@@ -201,7 +152,7 @@ class VampireWorldEnv(gym.Env):
             else:
                 direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            x,y = action
+            x, y = action
             magnitude = np.sqrt(x**2 + y**2)
             x = x / magnitude
             y = y / magnitude
@@ -210,43 +161,25 @@ class VampireWorldEnv(gym.Env):
             raise TypeError
 
         self._agent_location = np.clip(
-            self._agent_location + direction * self.config.agent_speed,
+            self._agent_location + direction,
             0,
             self.window_size - 1,
         )
-        self._enemies_location += (
-            -1.0 * self._get_info()["enemies_direction"] * self.config.enemy_speed
-        )
-
-        self._enemies_sense = self.sense_enemies(self._agent_location)
-        
-
-        self._enemies_distances = np.linalg.norm(
-            self._agent_location - self._enemies_location, ord=2, axis=1
-        )
-
-        attacks_from_enemies_mask = (
-            self._enemies_distances < self.config.enemy_attack_range
-        ).astype(int)
-
-        self._agent_health -= attacks_from_enemies_mask.sum() * self.config.enemy_damage
 
         self._target_distance = np.linalg.norm(
             self._agent_location - self._target_location, ord=2
-        )[None]
+        )
 
-        if (self._agent_health < 0).astype(bool)[0] == True:
+        reward = np.linalg.norm(self._agent_location - self._target_location, ord=2)
+
+        if self._target_distance < 20:
+            reward += 100
             terminated = True
-            reward = -200
+        elif self.n_steps > 1000:
+            reward = -100
+            terminated = True
         else:
-            reward = np.exp(3 - self._target_distance[0] / self.base_distance)
-            reward -= np.exp(1 + 3*self._enemies_sense.sum())
-            reward -= np.log(self.n_steps) / 3
-            if self._target_distance < 30:
-                reward += 100
-                terminated = True
-            else:
-                terminated = False
+            terminated = False
 
         observation = self._get_obs()
         info = self._get_info()
@@ -279,14 +212,6 @@ class VampireWorldEnv(gym.Env):
             pix_square_size * 10,
         )
 
-        # draw the agent's garlic radius
-        if self.render_mode == "human":
-            pygame.draw.circle(
-                canvas,
-                (120, 120, 120),
-                (self._agent_location.astype(int)),  # * pix_square_size,
-                pix_square_size * self.config.agent_attack_range,
-            )
         # Now we draw the agent
         pygame.draw.circle(
             canvas,
@@ -294,14 +219,6 @@ class VampireWorldEnv(gym.Env):
             (self._agent_location.astype(int)),  # * pix_square_size,
             pix_square_size * self.config.agent_radius,
         )
-
-        for x in range(self.size):
-            pygame.draw.circle(
-                canvas,
-                (245, 245, 245),
-                self._enemies_location[x].astype(int),
-                pix_square_size * self.config.enemy_radius,
-            )
 
         # Finally, add some gridlines
         # for x in range(self.size + 1):
