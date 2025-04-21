@@ -96,10 +96,16 @@ class VampireWorldEnv(gym.Env):
 
     def _get_obs(self):
         if self.render_mode == "rgb_array":
-            return self._render_frame()
+            return {
+                "agent_location": self._agent_location,
+                "enemy_location": self._enemy_location,
+                "target_location": self._target_location,
+                "screen" : self._render_frame()
+            }
         else:
             return {
                 "agent_location": self._agent_location,
+                "enemy_location": self._enemy_location,
                 "target_location": self._target_location,
             }
 
@@ -107,7 +113,7 @@ class VampireWorldEnv(gym.Env):
         return {}
 
     def reward_for_place(self, location: np.ndarray, n_steps=100):
-        return reward
+        return {}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
