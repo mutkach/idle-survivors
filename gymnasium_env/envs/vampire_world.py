@@ -75,9 +75,7 @@ class VampireWorldEnv(gym.Env):
                     "enemy_locations": spaces.Box(
                         0, self.window_size, shape=(self.size, 2), dtype=float
                     ),
-                    "enemy_sensing": spaces.Box(
-                        0, 1, shape=(self.n_dir,), dtype=float
-                    ),
+                    "enemy_sensing": spaces.Box(0, 1, shape=(self.n_dir,), dtype=float),
                 }
             )
         if movement == "wasd":
@@ -105,7 +103,7 @@ class VampireWorldEnv(gym.Env):
                 "enemy_locations": self._enemy_locations,
                 "target_location": self._target_location,
                 "enemy_sensing": self._enemy_sensing,
-                "screen" : self._render_frame()
+                "screen": self._render_frame(),
             }
         else:
             return {
@@ -128,11 +126,15 @@ class VampireWorldEnv(gym.Env):
         self._agent_location = np.random.randint(0, self.window_size, size=(2,))
 
         self._target_location = np.random.randint(0, self.window_size, size=(2,))
-        while (np.linalg.norm(self._target_location - self._agent_location, ord=1) < self.window_size // 2):
+        while (
+            np.linalg.norm(self._target_location - self._agent_location, ord=1)
+            < self.window_size // 2
+        ):
             self._target_location = np.random.randint(0, self.window_size, size=(2,))
 
-        self._enemy_locations = np.random.randint(0, self.window_size, size=(self.size,2))
-        print(self._enemy_locations)
+        self._enemy_locations = np.random.randint(
+            0, self.window_size, size=(self.size, 2)
+        )
         self._target_distance = np.linalg.norm(
             self._target_location - self._agent_location, ord=2
         )
@@ -164,16 +166,14 @@ class VampireWorldEnv(gym.Env):
         pos = self._agent_location
         cur_directions = pos + self.directions
         senses = np.array([0 for _ in range(self.n_dir)]).astype(float)
-        indices = np.argmax(cur_directions@(self._enemy_locations-pos).T, axis=0)
+        indices = np.argmax(cur_directions @ (self._enemy_locations - pos).T, axis=0)
         # we set 1 to each direction that has an enemy
         senses[indices] = 1
         # TODO: make vectorized
-        for i,ind in enumerate(indices):
+        for i, ind in enumerate(indices):
             # we subtract with a cutoff with a tanh function
             # it is almost zero for distant enemies and almost 1
-            senses[ind] -= np.tanh(
-                self._enemy_distances[i] / self.config.cutoff
-            )
+            senses[ind] -= np.tanh(self._enemy_distances[i] / self.config.cutoff)
         return senses
 
     def step(self, action):
@@ -233,13 +233,13 @@ class VampireWorldEnv(gym.Env):
         else:
             reward = -1
 
-        #reward -= np.log(self.n_steps)//5
+        # reward -= np.log(self.n_steps)//5
 
         truncated = False
-        if self._target_distance < self.window_size*0.04:
+        if self._target_distance < self.window_size * 0.04:
             reward += 10
             terminated = True
-        elif (self._enemy_distances < self.window_size*0.04).any():
+        elif (self._enemy_distances < self.window_size * 0.04).any():
             reward = -10
             terminated = True
             truncated = True
@@ -282,7 +282,7 @@ class VampireWorldEnv(gym.Env):
             canvas,
             (0, 0, 255),
             (self._agent_location.astype(int)),  # * pix_square_size,
-            pix_square_size * self.window_size*0.02,
+            pix_square_size * self.window_size * 0.02,
         )
 
         for i in range(self.size):
@@ -290,7 +290,7 @@ class VampireWorldEnv(gym.Env):
                 canvas,
                 (255, 0, 0),
                 (self._enemy_locations[i]),
-                pix_square_size*self.window_size*0.02
+                pix_square_size * self.window_size * 0.02,
             )
 
         # Finally, add some gridlines
