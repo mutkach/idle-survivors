@@ -71,6 +71,9 @@ class VampireWorldEnv(gym.Env):
                     "target_location": spaces.Box(
                         0, self.window_size, shape=(2,), dtype=float
                     ),
+                    "enemy_location": spaces.Box(
+                        0, self.window_size, shape=(2,), dtype=float
+                    ),
                 }
             )
         if movement == "wasd":
@@ -119,9 +122,20 @@ class VampireWorldEnv(gym.Env):
         ):
             self._target_location = np.random.randint(0, self.window_size, size=(2,))
 
+        self._enemy_location = np.random.randint(0, self.window_size, size=(2,))
+        while (
+            np.linalg.norm(self._enemy_location - self._agent_location, ord=1)
+            < self.window_size * 0.1
+        ):
+            self._enemy_location = np.random.randint(0, self.window_size, size=(2,))
+
         self._target_distance = np.linalg.norm(
             self._target_location - self._agent_location, ord=2
         )
+        self._enemy_distance = np.linalg.norm(
+            self._enemy_location - self._agent_location, ord=2
+        )
+        self.base_enemy_distance = self._enemy_distance
         self.base_distance = self._target_distance
         self.current_pos = self._agent_location
         self.prev_pos = None
@@ -175,21 +189,33 @@ class VampireWorldEnv(gym.Env):
         self._target_distance = np.linalg.norm(
             self._agent_location - self._target_location, ord=2
         )
+        self._enemy_distance = np.linalg.norm(
+            self._agent_location - self._enemy_location, ord=2
+        )
 
         prev_distance = np.linalg.norm(self.prev_pos - self._target_location, ord=2)
+        prev_enemy_distance = np.linalg.norm(self.prev_pos - self._enemy_location, ord=2)
 
+        self.reward = 0
         if self._target_distance < prev_distance:
             reward = 1
         elif self._target_distance == prev_distance:
-            reward = 0
+            reward = 1
         else:
             reward = -1
+        
+        if self._enemy_distance < prev_enemy_distance:
+            reward += 1
+        elif self._enemy_distance == prev_enemy_distance:
+            reward += 0
+        else:
+            reward -= 1
 
         truncated = False
         if self._target_distance < 20:
             terminated = True
         elif self.n_steps > 1000:
-            reward = -1
+            reward = -3
             terminated = True
             truncated = True
         else:
