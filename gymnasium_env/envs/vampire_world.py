@@ -174,12 +174,14 @@ class VampireWorldEnv(gym.Env):
 
         reward = np.linalg.norm(self._agent_location - self._target_location, ord=2)
 
+        truncated = False
         if self._target_distance < 20:
-            reward += 100
+            reward += 1
             terminated = True
         elif self.n_steps > 1000:
-            reward = -100
+            reward = -1
             terminated = True
+            truncated = True
         else:
             terminated = False
 
@@ -189,7 +191,7 @@ class VampireWorldEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation, reward, terminated, False, info
+        return observation, reward, terminated, truncated, info
 
     def render(self):
         if self.render_mode == "rgb_array":
