@@ -17,12 +17,12 @@ env = gymnasium.make(
 env = DummyVecEnv([lambda: env])
 env = VecNormalize(env)
 
-#model = A2C.load("./models/best_model")
+model = A2C.load("./models/best_model", env=env)
 observation = env.reset()
 
 for _ in range(1200):
-    action = [env.action_space.sample()]
-    #action, _ = model.predict(observation)
+    # action = [env.action_space.sample()]
+    action, _ = model.predict(observation)
     print(action)
     observation, reward, terminated, info = env.step(action)
 
