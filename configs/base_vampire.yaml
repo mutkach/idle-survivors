@@ -12,3 +12,4 @@ base_reward : 0
 kills_window : 20
 avg_kills : 0
 sense_width: 50
+cutoff: 100
