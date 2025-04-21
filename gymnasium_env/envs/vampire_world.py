@@ -123,6 +123,8 @@ class VampireWorldEnv(gym.Env):
             self._target_location - self._agent_location, ord=2
         )
         self.base_distance = self._target_distance
+        self.current_pos = self._agent_location
+        self.prev_pos = None
 
         self.n_steps = 0
 
@@ -163,6 +165,7 @@ class VampireWorldEnv(gym.Env):
         else:
             raise TypeError
 
+        self.prev_pos = self._agent_location
         self._agent_location = np.clip(
             self._agent_location + direction,
             0,
@@ -173,11 +176,17 @@ class VampireWorldEnv(gym.Env):
             self._agent_location - self._target_location, ord=2
         )
 
-        reward = 1 - (self._target_distance / self.base_distance)
+        prev_distance = np.linalg.norm(self.prev_pos - self._target_location, ord=2)
+
+        if self._target_distance < prev_distance:
+            reward = 1
+        elif self._target_distance == prev_distance:
+            reward = 0
+        else:
+            reward = -1
 
         truncated = False
         if self._target_distance < 20:
-            reward += 1
             terminated = True
         elif self.n_steps > 1000:
             reward = -1
