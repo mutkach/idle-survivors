@@ -221,6 +221,7 @@ class VampireWorldEnv(gym.Env):
 
         truncated = False
         if self._target_distance < self.window_size*0.04:
+            reward += 10
             terminated = True
         elif self._enemy_distance < self.window_size*0.04:
             reward = -3
