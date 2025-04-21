@@ -211,16 +211,16 @@ class VampireWorldEnv(gym.Env):
             reward = -1
         
         if self._enemy_distance < prev_enemy_distance:
-            reward += 1
+            reward += 0.5
         elif self._enemy_distance == prev_enemy_distance:
             reward += 0
         else:
-            reward -= 1
+            reward -= 0.5
 
         truncated = False
         if self._target_distance < 20:
             terminated = True
-        elif self.n_steps > 1000:
+        elif self._enemy_distance < 20:
             reward = -3
             terminated = True
             truncated = True
