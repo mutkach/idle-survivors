@@ -37,14 +37,14 @@ class VampireWorldEnv(gym.Env):
         self.movement = movement
         self.render_mode = render_mode
         self.n_steps = 0
-
         if not config:
             self.config = OmegaConf.load("configs/base_vampire.yaml")
         else:
             self.config = OmegaConf.load(config)
-        # Observations are dictionaries with the agent's and the target's location.
-        # Each location is encoded as an element of {0, ..., `size`}^2,
-        # i.e. MultiDiscrete([size, size]).
+
+        self.speed = self.window_size * 0.01
+        self.agent_radius = self.window_size * 0.02
+
         if self.render_mode == "rgb_array":
             self.observation_space = spaces.Dict(
                 {
@@ -216,11 +216,13 @@ class VampireWorldEnv(gym.Env):
             reward += 0
         else:
             reward -= 0.5
+        
+        reward -= np.log(self.n_steps)//5
 
         truncated = False
-        if self._target_distance < 20:
+        if self._target_distance < self.window_size*0.04:
             terminated = True
-        elif self._enemy_distance < 20:
+        elif self._enemy_distance < self.window_size*0.04:
             reward = -3
             terminated = True
             truncated = True
