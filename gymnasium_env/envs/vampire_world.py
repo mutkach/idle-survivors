@@ -227,13 +227,13 @@ class VampireWorldEnv(gym.Env):
 
         self.reward = 0
         if self._target_distance < prev_distance:
-            reward = 1
+            reward = 1- np.tanh(self.target_distance/100)
         elif self._target_distance == prev_distance:
             reward = 0
         else:
-            reward = -1
+            reward = np.tanh(self.target_distance/100)
 
-        # reward -= np.log(self.n_steps)//5
+        reward -= np.log(self.n_steps)//5
 
         truncated = False
         if self._target_distance < self.window_size * 0.04:
