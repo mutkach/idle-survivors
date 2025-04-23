@@ -81,7 +81,7 @@ class VampireWorldEnv(gym.Env):
         if movement == "wasd":
             self.action_space = spaces.Discrete(5)
         elif movement == "stick":
-            self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=float)
+            self.action_space = spaces.Box(0, 2 * 3.1415926, shape=(2,), dtype=float)
 
         self._action_to_direction = {
             Actions.right.value: np.array([1, 0]),
@@ -200,7 +200,8 @@ class VampireWorldEnv(gym.Env):
             else:
                 direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            x, y = action
+            r, theta = action
+            r = r / 2 * 3.1415926
             magnitude = np.sqrt(x**2 + y**2)
             if magnitude > 1:
                 x = x / magnitude
@@ -228,7 +229,7 @@ class VampireWorldEnv(gym.Env):
         self._enemy_sensing = np.clip(self.sense_enemies(), 0, 1)
 
         prev_distance = np.linalg.norm(self.prev_pos - self._target_location, ord=2)
-        progress = self._target_distance - prev_distance
+        progress = prev_distance - self._target_distance
         # if curr_sensing > prev_sensing then danger is greater
         # else danger is lower, therefore we subtract less
         enemy_danger = np.sum(self._enemy_sensing) - np.sum(self.prev_sensing)
