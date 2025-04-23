@@ -200,8 +200,7 @@ class VampireWorldEnv(gym.Env):
             else:
                 direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            r, theta = action
-            r = r / 2 * 3.1415926
+            x, y = action
             magnitude = np.sqrt(x**2 + y**2)
             if magnitude > 1:
                 x = x / magnitude
