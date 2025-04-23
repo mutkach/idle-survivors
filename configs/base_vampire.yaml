@@ -13,3 +13,6 @@ kills_window : 20
 avg_kills : 0
 sense_width: 50
 cutoff: 100
+# should sum to 1:
+danger_w: 0.5
+progress_w: 0.5

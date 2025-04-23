@@ -145,6 +145,7 @@ class VampireWorldEnv(gym.Env):
         self.base_distance = self._target_distance
         self.current_pos = self._agent_location
         self.prev_pos = None
+        self.prev_sense = None
         self.n_steps = 0
         self.directions = np.array(
             [
@@ -208,6 +209,7 @@ class VampireWorldEnv(gym.Env):
             raise TypeError
 
         self.prev_pos = self._agent_location
+
         self._agent_location = np.clip(
             self._agent_location + direction,
             0,
@@ -221,19 +223,16 @@ class VampireWorldEnv(gym.Env):
             self._agent_location - self._enemy_locations, ord=2, axis=1
         )
 
-        self._enemy_sensing = self.sense_enemies()
+        self.prev_sensing = self._enemy_sensing
+        self._enemy_sensing = np.clip(self.sense_enemies(), 0, 1)
 
         prev_distance = np.linalg.norm(self.prev_pos - self._target_location, ord=2)
+        progress = self._target_distance - prev_distance
+        # if curr_sensing > prev_sensing then danger is greater
+        # else danger is lower, therefore we subtract less
+        enemy_danger = np.sum(self._enemy_sensng) - np.sum(self.prev_sensing)
 
-        self.reward = 0
-        if self._target_distance < prev_distance:
-            reward = 1- np.tanh(self.target_distance/100)
-        elif self._target_distance == prev_distance:
-            reward = 0
-        else:
-            reward = np.tanh(self.target_distance/100)
-
-        reward -= np.log(self.n_steps)//5
+        reward = self.config.progress_w * progress - self.config.danger_w * enemy_danger
 
         truncated = False
         if self._target_distance < self.window_size * 0.04:
