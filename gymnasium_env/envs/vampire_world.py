@@ -230,7 +230,7 @@ class VampireWorldEnv(gym.Env):
         progress = self._target_distance - prev_distance
         # if curr_sensing > prev_sensing then danger is greater
         # else danger is lower, therefore we subtract less
-        enemy_danger = np.sum(self._enemy_sensng) - np.sum(self.prev_sensing)
+        enemy_danger = np.sum(self._enemy_sensing) - np.sum(self.prev_sensing)
 
         reward = self.config.progress_w * progress - self.config.danger_w * enemy_danger
 
