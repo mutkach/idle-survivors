@@ -202,8 +202,9 @@ class VampireWorldEnv(gym.Env):
         elif self.movement == "stick":
             x, y = action
             magnitude = np.sqrt(x**2 + y**2)
-            x = x / magnitude
-            y = y / magnitude
+            if magnitude > 1:
+                x = x / magnitude
+                y = y / magnitude
             direction = np.array([x, y])
         else:
             raise TypeError
@@ -236,10 +237,10 @@ class VampireWorldEnv(gym.Env):
 
         truncated = False
         if self._target_distance < self.window_size * 0.04:
-            reward += 10
+            reward += self.config.target_reward
             terminated = True
         elif (self._enemy_distances < self.window_size * 0.04).any():
-            reward = -10
+            reward -= self.config.death_penalty
             terminated = True
             truncated = True
         else:
