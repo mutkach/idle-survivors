@@ -147,7 +147,7 @@ class VampireWorldEnv(gym.Env):
         self.prev_pos = None
         self.prev_sense = None
         self.n_steps = 0
-        self.directions = np.array(
+        self.sensing_directions = np.array(
             [
                 np.array([np.cos(x), np.sin(x)])
                 for x in np.linspace(
@@ -165,7 +165,7 @@ class VampireWorldEnv(gym.Env):
 
     def sense_enemies(self):
         pos = self._agent_location
-        cur_directions = pos + self.directions
+        cur_directions = pos + self.sensing_directions
         senses = np.array([0 for _ in range(self.n_dir)]).astype(float)
         indices = np.argmax(cur_directions @ (self._enemy_locations - pos).T, axis=0)
         # we set 1 to each direction that has an enemy
@@ -200,11 +200,10 @@ class VampireWorldEnv(gym.Env):
             else:
                 direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            x, y = action
-            magnitude = np.sqrt(x**2 + y**2)
-            if magnitude > 1:
-                x = x / magnitude
-                y = y / magnitude
+            r, theta = action
+            r = r / (2 * 3.1415962)
+            x = r * np.cos(theta)
+            y = r * np.sin(theta)
             direction = np.array([x, y])
         else:
             raise TypeError
@@ -228,12 +227,20 @@ class VampireWorldEnv(gym.Env):
         self._enemy_sensing = np.clip(self.sense_enemies(), 0, 1)
 
         prev_distance = np.linalg.norm(self.prev_pos - self._target_location, ord=2)
-        progress = prev_distance - self._target_distance
+        progress = np.exp(4 - 2 * self._target_distance / self.base_distance) * (
+            prev_distance - self._target_distance
+        )
         # if curr_sensing > prev_sensing then danger is greater
-        # else danger is lower, therefore we subtract less
+        # else: danger is lower, therefore we subtract less
         enemy_danger = np.sum(self._enemy_sensing) - np.sum(self.prev_sensing)
 
-        reward = self.config.progress_w * progress - self.config.danger_w * enemy_danger
+        movement_penalty = np.linalg.norm(direction)
+
+        reward = (
+            self.config.progress_w * progress
+            - self.config.danger_w * enemy_danger
+            - self.config.movement_w * movement_penalty
+        )
 
         truncated = False
         if self._target_distance < self.window_size * 0.04:
@@ -241,8 +248,6 @@ class VampireWorldEnv(gym.Env):
             terminated = True
         elif (self._enemy_distances < self.window_size * 0.04).any():
             reward -= self.config.death_penalty
-            terminated = True
-            truncated = True
         else:
             terminated = False
 
