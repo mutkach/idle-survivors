@@ -243,6 +243,7 @@ class VampireWorldEnv(gym.Env):
         )
 
         truncated = False
+        terminated = False
         if self._target_distance < self.window_size * 0.04:
             reward += self.config.target_reward
             terminated = True
