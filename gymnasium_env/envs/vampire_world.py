@@ -81,7 +81,7 @@ class VampireWorldEnv(gym.Env):
         if movement == "wasd":
             self.action_space = spaces.Discrete(5)
         elif movement == "stick":
-            self.action_space = spaces.Box(0, 2 * 3.1415926, shape=(2,), dtype=float)
+            self.action_space = spaces.Box(0, 1, shape=(2,), dtype=float)
 
         self._action_to_direction = {
             Actions.right.value: np.array([1, 0]),
@@ -200,10 +200,11 @@ class VampireWorldEnv(gym.Env):
             else:
                 direction = self._action_to_direction[action]
         elif self.movement == "stick":
-            r, theta = action
-            r = r / (2 * 3.1415962)
-            x = r * np.cos(theta)
-            y = r * np.sin(theta)
+            x, y = action
+            magnitude = np.sqrt(x**2 + y**2)
+            if magnitude > 1:
+                x = x / magnitude
+                y = y / magnitude
             direction = np.array([x, y])
         else:
             raise TypeError
