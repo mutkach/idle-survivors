@@ -1,4 +1,4 @@
-# Gymnasium Examples
+# Vampire Survivors-like Environment
 This is an implementation of Gymnasium environment for bullet-heaven games. It is based on [on the environment creation documentation](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/).
 For some explanations of these examples, see the [Gymnasium documentation](https://gymnasium.farama.org).
 
