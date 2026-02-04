@@ -3,10 +3,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import pygame
 import numpy as np
-from scipy import stats
-from collections import deque
 import pathlib
-from itertools import product
 from omegaconf import OmegaConf
 
 
@@ -22,6 +19,24 @@ DEFAULT_SIZE = 512
 
 
 class VampireWorldEnv(gym.Env):
+    """Bullet-heaven Gymnasium environment.
+
+    The agent (blue circle) must navigate to a target (green circle) while
+    avoiding enemies (red circles).  Enemies are sensed via a 12-direction
+    radial system that feeds a normalised proximity vector into the
+    observation.
+
+    Observation space (non-rgb_array mode):
+        agent_location  – (2,) agent position in pixels
+        target_location – (2,) target position in pixels
+        enemy_locations – (size, 2) enemy positions
+        enemy_sensing   – (12,) directional enemy proximity
+
+    Action space:
+        movement="wasd"  – Discrete(5): right, up, left, down, nothing
+        movement="stick" – Box(2,): continuous 2-D direction
+    """
+
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 25}
 
     def __init__(
@@ -116,9 +131,6 @@ class VampireWorldEnv(gym.Env):
     def _get_info(self):
         return {}
 
-    def reward_for_place(self, location: np.ndarray, n_steps=100):
-        return {}
-
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
@@ -183,7 +195,7 @@ class VampireWorldEnv(gym.Env):
         if self.movement == "wasd":
             # interact with env when in human mode
             if self.render_mode == "human":
-                events = pygame.event.get()
+                pygame.event.get()
                 keys = pygame.key.get_pressed()
                 new_action = None
                 if keys[pygame.K_LEFT]:
@@ -299,23 +311,6 @@ class VampireWorldEnv(gym.Env):
                 (self._enemy_locations[i]),
                 pix_square_size * self.window_size * 0.02,
             )
-
-        # Finally, add some gridlines
-        # for x in range(self.size + 1):
-        #    pygame.draw.line(
-        #        canvas,
-        #        0,
-        #        (0, pix_square_size * x),
-        #        (self.window_size, pix_square_size * x),
-        #        width=3,
-        #    )
-        #    pygame.draw.line(
-        #        canvas,
-        #        0,
-        #        (pix_square_size * x, 0),
-        #        (pix_square_size * x, self.window_size),
-        #        width=3,
-        #    )
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
