@@ -2,15 +2,15 @@
 """Run the VampireWorld environment with random actions for visual testing."""
 
 import gymnasium
-import gymnasium_env  # noqa: F401
+import idle_vampires  # noqa: F401
 import numpy as np
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 env = gymnasium.make(
-    "gymnasium_env/VampireWorld-v0",
+    "idle_vampires/VampireWorld-v0",
     window_size=512,
     render_mode="human",
-    size=3,
+    num_enemies=3,
     movement="wasd",
 )
 

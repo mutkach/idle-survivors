@@ -15,7 +15,9 @@ class Actions(Enum):
     nothing = 4
 
 
-DEFAULT_SIZE = 512
+_DEFAULT_CONFIG = (
+    pathlib.Path(__file__).resolve().parent.parent / "configs" / "base.yaml"
+)
 
 
 class VampireWorldEnv(gym.Env):
@@ -29,7 +31,7 @@ class VampireWorldEnv(gym.Env):
     Observation space (non-rgb_array mode):
         agent_location  – (2,) agent position in pixels
         target_location – (2,) target position in pixels
-        enemy_locations – (size, 2) enemy positions
+        enemy_locations – (num_enemies, 2) enemy positions
         enemy_sensing   – (12,) directional enemy proximity
 
     Action space:
@@ -42,19 +44,19 @@ class VampireWorldEnv(gym.Env):
     def __init__(
         self,
         render_mode=None,
-        size=5,
+        num_enemies=5,
         window_size=512,
         movement: str = "wasd",
         config: pathlib.Path = None,
     ):
-        self.size = size  # The size of the square grid
+        self.num_enemies = num_enemies
         self.window_size = window_size  # The size of the PyGame window
         self.movement = movement
         self.render_mode = render_mode
         self.n_steps = 0
         self.n_dir = 12
         if not config:
-            self.config = OmegaConf.load("configs/base_vampire.yaml")
+            self.config = OmegaConf.load(_DEFAULT_CONFIG)
         else:
             self.config = OmegaConf.load(config)
 
@@ -88,7 +90,7 @@ class VampireWorldEnv(gym.Env):
                         0, self.window_size, shape=(2,), dtype=float
                     ),
                     "enemy_locations": spaces.Box(
-                        0, self.window_size, shape=(self.size, 2), dtype=float
+                        0, self.window_size, shape=(self.num_enemies, 2), dtype=float
                     ),
                     "enemy_sensing": spaces.Box(0, 1, shape=(self.n_dir,), dtype=float),
                 }
@@ -145,7 +147,7 @@ class VampireWorldEnv(gym.Env):
             self._target_location = np.random.randint(0, self.window_size, size=(2,))
 
         self._enemy_locations = np.random.randint(
-            0, self.window_size, size=(self.size, 2)
+            0, self.window_size, size=(self.num_enemies, 2)
         )
         self._target_distance = np.linalg.norm(
             self._target_location - self._agent_location, ord=2
@@ -304,7 +306,7 @@ class VampireWorldEnv(gym.Env):
             pix_square_size * self.window_size * 0.02,
         )
 
-        for i in range(self.size):
+        for i in range(self.num_enemies):
             pygame.draw.circle(
                 canvas,
                 (255, 0, 0),
